@@ -1,0 +1,40 @@
+# configs/base_config.yaml
+
+project:
+  name: "default_text_classification"
+  seed: 42
+
+data:
+  path: "data/sample_single_label_data.csv"
+  type: "single_label" # "single_label" or "multi_label"
+  text_column: "text"
+  label_column: "category"
+  test_size: 0.2
+  eval_size: 0.25 # This is 25% of the (1 - test_size) part
+
+model:
+  name: "bert-base-chinese"
+  max_length: 128
+
+tuning:
+  strategy: "sft" # "sft", "lora", "qlora"
+  # Parameters will be specific to the strategy
+
+training:
+  output_dir: "outputs"
+  num_train_epochs: 3
+  per_device_train_batch_size: 8
+  per_device_eval_batch_size: 8
+  warmup_steps: 100
+  weight_decay: 0.01
+  logging_steps: 10
+  evaluation_strategy: "steps"
+  save_strategy: "steps"
+  load_best_model_at_end: true
+  metric_for_best_model: "f1" # For single-label, use "f1". For multi-label, use "f1_micro (threshold_0.5)"
+  greater_is_better: true
+  fp16: true
+  learning_rate: 2e-5
+  gradient_accumulation_steps: 1
+  report_to: "tensorboard" # "none", "tensorboard", "wandb"
+  multi_label_threshold: 0.5 # Threshold for multi-label prediction

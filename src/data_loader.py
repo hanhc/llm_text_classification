@@ -1,4 +1,4 @@
-# llm-text-classification/src/data_loader.py
+# llm-text-classification/src/data_loader.py (最终重构版)
 
 import pandas as pd
 from datasets import Dataset
@@ -15,12 +15,29 @@ class BaseDataLoader(ABC):
     def __init__(self, config, tokenizer):
         self.config = config
         self.tokenizer = tokenizer
+        self.approach = config['model']['approach']
         self.text_col = config['data_processing']['text_column']
         self.label_col = config['data_processing']['label_column']
 
-    @abstractmethod
     def load_and_preprocess(self):
-        """加载和预处理数据"""
+        """根据 'approach' 配置，选择不同的数据处理流程。"""
+        if self.approach == 'classification_head':
+            logger.info("Approach is 'classification_head'. Loading and tokenizing data.")
+            return self.load_and_tokenize_for_classification()
+        elif self.approach == 'generative':
+            logger.info("Approach is 'generative'. Loading raw text data for SFT.")
+            return self.load_raw_text_for_generation()
+        else:
+            raise ValueError(f"Unsupported model approach: {self.approach}")
+
+    @abstractmethod
+    def load_and_tokenize_for_classification(self):
+        """为 classification_head 方法加载并分词数据。"""
+        pass
+
+    @abstractmethod
+    def load_raw_text_for_generation(self):
+        """为 generative 方法加载原始文本数据。"""
         pass
 
     def _load_data(self):
@@ -39,7 +56,16 @@ class BaseDataLoader(ABC):
 class SingleLabelLoader(BaseDataLoader):
     """单标签数据加载器"""
 
-    def load_and_preprocess(self):
+    def load_raw_text_for_generation(self):
+        df = self._load_data()
+        # 对于生成式任务，我们只需要原始文本和标签即可。
+        # 不需要编码或分词，SFTTrainer会处理。
+        self.num_labels = len(df[self.label_col].unique())
+        self.label2id, self.id2label = {}, {}  # 生成式任务不需要
+        logger.info(f"Loaded raw text dataset with {len(df)} records.")
+        return Dataset.from_pandas(df)
+
+    def load_and_tokenize_for_classification(self):
         df = self._load_data()
 
         le = LabelEncoder()
@@ -67,19 +93,31 @@ class SingleLabelLoader(BaseDataLoader):
         tokenized_dataset = dataset.map(
             tokenize_function,
             batched=True,
-            remove_columns=df.columns.tolist()  # 移除原始DataFrame中的所有列
+            remove_columns=df.columns.tolist()  # 移除所有原始列
         )
         return tokenized_dataset
 
 
+# MultiLabelLoader 的修改与 SingleLabelLoader 类似
 class MultiLabelLoader(BaseDataLoader):
     """多标签数据加载器"""
 
-    def load_and_preprocess(self):
+    def load_raw_text_for_generation(self):
+        # 注意: 生成式多标签分类是一个更复杂的任务。
+        # SFTTrainer 通常期望一个单一的文本标签。
+        # 这里我们假设标签被 delimiter 分隔成一个字符串，例如 "科幻;惊悚"
+        logger.warning("Generative multi-label classification is an advanced task. "
+                       "Ensure your prompt and model can handle delimited string labels.")
+        df = self._load_data()
+        self.num_labels = -1  # 在生成式任务中不适用
+        self.label2id, self.id2label = {}, {}
+        logger.info(f"Loaded raw text dataset for multi-label generation with {len(df)} records.")
+        return Dataset.from_pandas(df)
+
+    def load_and_tokenize_for_classification(self):
         df = self._load_data()
         delimiter = self.config['data_processing']['label_delimiter']
 
-        # 将标签字符串分割成列表
         df['labels_list'] = df[self.label_col].astype(str).apply(lambda x: x.split(delimiter))
 
         mlb = MultiLabelBinarizer()
@@ -92,7 +130,6 @@ class MultiLabelLoader(BaseDataLoader):
         logger.info(f"Found {self.num_labels} unique labels for multi-label classification.")
         logger.info(f"Label mapping: {self.label2id}")
 
-        # 将 one-hot 编码的标签列表添加到DataFrame
         df['labels_one_hot'] = list(encoded_labels)
         dataset = Dataset.from_pandas(df)
 
@@ -103,14 +140,13 @@ class MultiLabelLoader(BaseDataLoader):
                 truncation=True,
                 max_length=self.config['data_processing']['max_length']
             )
-            # 标签需要是 float 类型以计算 BCEWithLogitsLoss
             tokenized["labels"] = [list(map(float, labels)) for labels in examples['labels_one_hot']]
             return tokenized
 
         tokenized_dataset = dataset.map(
             tokenize_function,
             batched=True,
-            remove_columns=df.columns.tolist()  # 移除原始DataFrame中的所有列
+            remove_columns=df.columns.tolist()  # 移除所有原始列
         )
         return tokenized_dataset
 

@@ -12,12 +12,12 @@ project:
 # 2. 路径设置
 paths:
   # 适用于单标签或多标签数据
-  data_path: "data/sample_single_label.csv"
+  data_path: "/home/hhc/nlp/data/sentiment/sentiment.csv"
   # 模型和训练结果输出目录
-  output_dir: "outputs/qwen2-1.5b-single-label-lora"
+  output_dir: "/home/hhc/nlp/models/sentiment_qwen2.5-0.5B_generative/"
   log_file: "logs/app.log"
   # 推理或评估时加载的模型checkpoint路径
-  model_checkpoint: "outputs/qwen2-1.5b-single-label-lora"
+  model_checkpoint: "/home/hhc/nlp/models/sentiment_qwen2.5-0.5B_generative/"
 
 # 3. 数据处理设置
 data_processing:
@@ -31,7 +31,7 @@ data_processing:
 
 # 4. 模型与微调设置
 model:
-  model_name_or_path: "qwen/Qwen2-1.5B-Instruct"
+  model_name_or_path: "/home/hhc/nlp/pretrained_models/Qwen2.5-0.5B/"
   # LLM应用方法:
   # classification_head: 在LLM上加一个分类头进行微调 (判别式)
   # generative: 将分类任务转为文本生成任务进行微调 (生成式)
@@ -40,7 +40,7 @@ model:
   # 简单的零样本模板: "文本：'{text}'\n分类："
   # 指令式模板（如上例）: "将以下评论文本分类为...情感分类："
   # 角色扮演模板: "你是一个情感分析专家。请分析以下文本的情感。\n文本：'{text}'\n你的分析结果是："
-  prompt_template: "将以下评论文本分类为正向或负向中的一种情感：\n\n评论：'{text}'\n\n情感分类："
+  prompt_template: "你是一个语言专家，请将以下评论文本进行二分类，标签分别为正向和负向，代表情感倾向。\n评论文本如下：\n'{text}'\n\n情感分类："
 
   # 微调策略: sft / lora / qlora
   finetuning_type: "lora"
@@ -80,7 +80,7 @@ training_args:
   logging_strategy: "steps"
   logging_steps: 1
   save_strategy: "epoch"
-  evaluation_strategy: "epoch"
+  eval_strategy: "epoch"
   fp16: true # 如果GPU支持，可以开启以加速训练
   # bf16: false # 如果是Ampere架构GPU，推荐使用bf16
   load_best_model_at_end: true

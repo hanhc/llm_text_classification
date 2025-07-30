@@ -149,15 +149,11 @@ def run_training(config):
                     # SFTTrainer 需要一个包含输入和输出的完整字符串
                     return {"text": f"{prompt}{example[label_col]}"}
 
-                return dataset.map(apply_prompt)
+                # 确保移除了所有原始列，只留下 'text' 列给 SFTTrainer
+                return dataset.map(apply_prompt, remove_columns=dataset.column_names)
 
             formatted_train_dataset = format_dataset_for_sft(train_dataset)
             formatted_eval_dataset = format_dataset_for_sft(eval_dataset)
-
-            # 确保移除了所有原始列，只留下 'text' 列给 SFTTrainer
-            original_cols = train_dataset.column_names
-            formatted_train_dataset = formatted_train_dataset.remove_columns(original_cols)
-            formatted_eval_dataset = formatted_eval_dataset.remove_columns(original_cols)
 
             trainer = SFTTrainer(
                 model=model,

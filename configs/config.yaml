@@ -35,7 +35,12 @@ model:
   # LLM应用方法:
   # classification_head: 在LLM上加一个分类头进行微调 (判别式)
   # generative: 将分类任务转为文本生成任务进行微调 (生成式)
-  approach: "classification_head"
+  approach: "generative"
+
+  # 简单的零样本模板: "文本：'{text}'\n分类："
+  # 指令式模板（如上例）: "将以下评论文本分类为...情感分类："
+  # 角色扮演模板: "你是一个情感分析专家。请分析以下文本的情感。\n文本：'{text}'\n你的分析结果是："
+  prompt_template: "将以下评论文本分类为'喜悦'、'愤怒'或'悲伤'中的一种情感：\n\n评论：'{text}'\n\n情感分类："
 
   # 微调策略: sft / lora / qlora
   finetuning_type: "lora"

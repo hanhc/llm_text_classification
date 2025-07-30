@@ -64,7 +64,11 @@ class SingleLabelLoader(BaseDataLoader):
             tokenized["labels"] = examples["label_id"]
             return tokenized
 
-        tokenized_dataset = dataset.map(tokenize_function, batched=True)
+        tokenized_dataset = dataset.map(
+            tokenize_function,
+            batched=True,
+            remove_columns=df.columns.tolist()  # 移除原始DataFrame中的所有列
+        )
         return tokenized_dataset
 
 
@@ -103,7 +107,11 @@ class MultiLabelLoader(BaseDataLoader):
             tokenized["labels"] = [list(map(float, labels)) for labels in examples['labels_one_hot']]
             return tokenized
 
-        tokenized_dataset = dataset.map(tokenize_function, batched=True)
+        tokenized_dataset = dataset.map(
+            tokenize_function,
+            batched=True,
+            remove_columns=df.columns.tolist()  # 移除原始DataFrame中的所有列
+        )
         return tokenized_dataset
 
 

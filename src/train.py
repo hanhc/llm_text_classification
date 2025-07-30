@@ -2,7 +2,7 @@
 
 import logging
 import torch
-from transformers import Trainer, TrainingArguments
+from transformers import Trainer, TrainingArguments, DataCollatorWithPadding
 from trl import SFTTrainer
 from .data_loader import DataLoaderFactory
 from .model_loader import ModelLoaderFactory
@@ -94,7 +94,12 @@ def run_training(config):
             id2label=data_loader_factory.id2label
         )
 
-        # 5. 配置训练参数
+        # 5. 显式创建数据整理器
+        # 这个整理器会负责将批处理数据正确地填充并转换为Tensor
+        logger.info("Initializing DataCollatorWithPadding.")
+        data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+
+        # 6. 配置训练参数 (这部分不变)
         training_args_config = config['training_args']
         training_args = TrainingArguments(
             output_dir=config['paths']['output_dir'],
@@ -102,7 +107,7 @@ def run_training(config):
             **training_args_config
         )
 
-        # 6. 初始化 Trainer
+        # 7. 初始化 Trainer (注意，我们只对标准 Trainer 添加 data_collator)
         approach = config['model']['approach']
         task_type = config['project']['task_type']
 
@@ -115,14 +120,10 @@ def run_training(config):
                 train_dataset=train_dataset,
                 eval_dataset=eval_dataset,
                 tokenizer=tokenizer,
+                data_collator=data_collator,
                 compute_metrics=compute_metrics_fn
             )
         elif approach == 'generative':
-            # 为生成式微调格式化数据
-            def formatting_prompts_func(example):
-                text = f"文本：'{example[config['data_processing']['text_column']]}'\n标签："
-                return {"text": text, "label": example[config['data_processing']['label_column']]}
-
             # 注意：生成式微调需要特定的文本格式，这里是一个简单的例子
             # 您可能需要根据您的任务和模型进行调整
             # TRL的SFTTrainer期望一个'text'列或者dataset_text_field参数

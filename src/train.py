@@ -3,7 +3,7 @@
 import logging
 import torch
 from transformers import Trainer, TrainingArguments, DataCollatorWithPadding
-from trl import SFTTrainer
+from trl import SFTTrainer, SFTConfig
 from .data_loader import DataLoaderFactory
 from .model_loader import ModelLoaderFactory
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, precision_recall_fscore_support
@@ -155,14 +155,22 @@ def run_training(config):
             formatted_train_dataset = format_dataset_for_sft(train_dataset)
             formatted_eval_dataset = format_dataset_for_sft(eval_dataset)
 
+            sft_config = SFTConfig(
+                dataset_text_field="text",
+                max_length=config['data_processing']['max_length'],
+                # 确保 output_dir 也被传入
+                output_dir=config['paths']['output_dir'],
+                report_to=config['project']['experiment_tracker'],
+                **training_args_config,  # 从配置文件中加载所有通用的训练参数 **training_args_config 会将字典中的所有键值对作为关键字参数传入
+                # 如果您想在这里覆盖配置文件中的任何参数，也可以直接写
+                # learning_rate=2.0e-5,
+            )
+
             trainer = SFTTrainer(
                 model=model,
-                args=training_args,
+                args=sft_config,
                 train_dataset=formatted_train_dataset,
                 eval_dataset=formatted_eval_dataset,
-                dataset_text_field="text",  # 指定包含完整prompt的字段
-                max_seq_length=config['data_processing']['max_length'],
-                tokenizer=tokenizer,
             )
 
         # 7. 开始训练

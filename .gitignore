@@ -18,3 +18,4 @@ cache*
 *.lock
 .DS_Store
 runs/
+.ipynb_checkpoints/

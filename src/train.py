@@ -124,19 +124,40 @@ def run_training(config):
                 compute_metrics=compute_metrics_fn
             )
         elif approach == 'generative':
-            # 注意：生成式微调需要特定的文本格式，这里是一个简单的例子
-            # 您可能需要根据您的任务和模型进行调整
-            # TRL的SFTTrainer期望一个'text'列或者dataset_text_field参数
-            # 我们在这里将输入和输出拼接成一个文本
+            logger.info("Formatting dataset for generative fine-tuning (SFT)...")
+
+            # 从配置中读取Prompt模板，并提供一个安全的默认值
+            prompt_template = config['model'].get('prompt_template', "文本: {text}\n分类:")
+            if '{text}' not in prompt_template:
+                raise ValueError("`prompt_template` in config must contain the placeholder '{text}'.")
+
+            logger.info(f"Using prompt template: \"{prompt_template}\"")
+
+            # 获取数据列名
+            text_col = config['data_processing']['text_column']
+            label_col = config['data_processing']['label_column']
+
+            # 定义格式化函数，它会应用配置的模板
             def format_dataset_for_sft(dataset):
-                # 这里假设SFTTrainer会处理label，我们需要一个text字段
-                # 这是一个简化的例子，实际应用中可能需要更复杂的prompt工程
-                # SFTTrainer将 text 和 label 拼接训练
-                return dataset.map(lambda x: {
-                    'text': f"文本: {x[config['data_processing']['text_column']]}\n分类: {x[config['data_processing']['label_column']]}"})
+                """
+                将数据集格式化为 SFTTrainer 所需的单个文本列。
+                格式为：prompt_template + label
+                """
+                def apply_prompt(example):
+                    # 将占位符替换为实际文本，然后拼接上标签
+                    prompt = prompt_template.format(text=example[text_col])
+                    # SFTTrainer 需要一个包含输入和输出的完整字符串
+                    return {"text": f"{prompt}{example[label_col]}"}
+
+                return dataset.map(apply_prompt)
 
             formatted_train_dataset = format_dataset_for_sft(train_dataset)
             formatted_eval_dataset = format_dataset_for_sft(eval_dataset)
+
+            # 确保移除了所有原始列，只留下 'text' 列给 SFTTrainer
+            original_cols = train_dataset.column_names
+            formatted_train_dataset = formatted_train_dataset.remove_columns(original_cols)
+            formatted_eval_dataset = formatted_eval_dataset.remove_columns(original_cols)
 
             trainer = SFTTrainer(
                 model=model,

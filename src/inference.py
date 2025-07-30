@@ -55,8 +55,15 @@ def run_inference(config):
             pipe = pipeline("text-generation", model=model, tokenizer=tokenizer,
                             device=0 if torch.cuda.is_available() else -1)
 
-            # 构建与训练时相似的prompt
-            prompt = f"文本: {inference_text}\n分类:"
+            # 从配置中读取完全相同的Prompt模板
+            prompt_template = config['model'].get('prompt_template', "文本: {text}\n分类:")
+            if '{text}' not in prompt_template:
+                raise ValueError("`prompt_template` in config must contain the placeholder '{text}'.")
+
+            # 使用模板构建推理时的输入Prompt
+            prompt = prompt_template.format(text=inference_text)
+
+            logger.info(f"Constructed Inference Prompt:\n{prompt}")
 
             # `max_new_tokens` 应该设置得比较小，因为我们只需要标签
             # `pad_token_id` 对于开放送式生成很重要
@@ -65,7 +72,7 @@ def run_inference(config):
             generated_text = raw_output[0]['generated_text']
             # 从生成文本中解析出标签
             # 这是一个简单的解析逻辑，可能需要根据实际输出来优化
-            prediction = generated_text.split("分类:")[-1].strip()
+            prediction = generated_text[len(prompt):].strip()
 
             logger.info(f"Generated Text: {generated_text}")
             logger.info(f"Parsed Prediction: {prediction}")

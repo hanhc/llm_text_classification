@@ -14,10 +14,10 @@ paths:
   # 适用于单标签或多标签数据
   data_path: "/home/hhc/nlp/data/sentiment/sentiment.csv"
   # 模型和训练结果输出目录
-  output_dir: "/home/hhc/nlp/models/sentiment_qwen2.5-0.5B_generative/"
+  output_dir: "/home/hhc/nlp/models/sentiment_qwen2.5-0.5B_clf/"
   log_file: "logs/app.log"
   # 推理或评估时加载的模型checkpoint路径
-  model_checkpoint: "/home/hhc/nlp/models/sentiment_qwen2.5-0.5B_generative/"
+  model_checkpoint: "/home/hhc/nlp/models/sentiment_qwen2.5-0.5B_clf/"
 
 # 3. 数据处理设置
 data_processing:
@@ -35,7 +35,7 @@ model:
   # LLM应用方法:
   # classification_head: 在LLM上加一个分类头进行微调 (判别式)
   # generative: 将分类任务转为文本生成任务进行微调 (生成式)
-  approach: "generative"
+  approach: "classification_head"
 
   # 简单的零样本模板: "文本：'{text}'\n分类："
   # 指令式模板（如上例）: "将以下评论文本分类为...情感分类："
@@ -84,7 +84,8 @@ training_args:
   fp16: true # 如果GPU支持，可以开启以加速训练
   # bf16: false # 如果是Ampere架构GPU，推荐使用bf16
   load_best_model_at_end: true
-  metric_for_best_model: "eval_f1" # "eval_accuracy" for single-label, "eval_f1" for multi-label
+  # "eval_accuracy" for single-label, "eval_f1" for multi-label eval_los for generative
+  metric_for_best_model: "eval_accuracy"
 
 # 6. 推理设置
 inference:

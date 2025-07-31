@@ -66,13 +66,14 @@ def run_training(config):
 
         # 2. 加载tokenizer (用于数据预处理)
         # 仅加载tokenizer以初始化data_loader
-        temp_tokenizer, _ = ModelLoaderFactory.create_model_and_tokenizer(config, 0, {}, {})
+        # temp_tokenizer, _ = ModelLoaderFactory.create_model_and_tokenizer(config, 0, {}, {})
 
-        # 3. 加载和预处理数据
-        data_loader_factory = DataLoaderFactory.create_data_loader(config, temp_tokenizer)
+        # 2. 加载和预处理数据
+        logger.info("Creating data loader...")
+        data_loader_factory = DataLoaderFactory.create_data_loader(config)
         tokenized_dataset = data_loader_factory.load_and_preprocess()
 
-        # 分割数据集
+        # 3.分割数据集
         if 'train' in tokenized_dataset.column_names:
             # 假设数据集已经分割好
             train_dataset = tokenized_dataset['train']

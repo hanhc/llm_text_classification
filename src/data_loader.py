@@ -2,6 +2,7 @@
 
 import pandas as pd
 from datasets import Dataset
+from transformers import AutoTokenizer
 from sklearn.preprocessing import LabelEncoder, MultiLabelBinarizer
 import logging
 from abc import ABC, abstractmethod
@@ -12,9 +13,9 @@ logger = logging.getLogger(__name__)
 class BaseDataLoader(ABC):
     """数据加载器抽象基类"""
 
-    def __init__(self, config, tokenizer):
+    def __init__(self, config):
         self.config = config
-        self.tokenizer = tokenizer
+        # self.tokenizer = tokenizer
         self.approach = config['model']['approach']
         self.text_col = config['data_processing']['text_column']
         self.label_col = config['data_processing']['label_column']
@@ -80,8 +81,17 @@ class SingleLabelLoader(BaseDataLoader):
 
         dataset = Dataset.from_pandas(df)
 
+        # 在函数内部加载一个全新的、干净的 tokenizer
+        logger.info("Loading a fresh tokenizer inside data_loader to ensure isolation.")
+        tokenizer = AutoTokenizer.from_pretrained(
+            self.config['model']['model_name_or_path'],
+            trust_remote_code=True
+        )
+        if tokenizer.pad_token is None:
+            tokenizer.pad_token = tokenizer.eos_token
+
         def tokenize_function(examples):
-            tokenized = self.tokenizer(
+            tokenized = tokenizer(
                 examples[self.text_col],
                 padding="max_length",
                 truncation=True,
@@ -93,7 +103,12 @@ class SingleLabelLoader(BaseDataLoader):
         tokenized_dataset = dataset.map(
             tokenize_function,
             batched=True,
-            remove_columns=df.columns.tolist()  # 移除所有原始列
+            remove_columns=df.columns.tolist(),  # 移除所有原始列
+            load_from_cache_file=False
+        )
+        tokenized_dataset.set_format(
+            type='torch',
+            columns=['input_ids', 'attention_mask', 'labels']
         )
         return tokenized_dataset
 
@@ -132,9 +147,17 @@ class MultiLabelLoader(BaseDataLoader):
 
         df['labels_one_hot'] = list(encoded_labels)
         dataset = Dataset.from_pandas(df)
+        # 在函数内部加载一个全新的、干净的 tokenizer
+        logger.info("Loading a fresh tokenizer inside data_loader to ensure isolation.")
+        tokenizer = AutoTokenizer.from_pretrained(
+            self.config['model']['model_name_or_path'],
+            trust_remote_code=True
+        )
+        if tokenizer.pad_token is None:
+            tokenizer.pad_token = tokenizer.eos_token
 
         def tokenize_function(examples):
-            tokenized = self.tokenizer(
+            tokenized = tokenizer(
                 examples[self.text_col],
                 padding="max_length",
                 truncation=True,
@@ -146,7 +169,12 @@ class MultiLabelLoader(BaseDataLoader):
         tokenized_dataset = dataset.map(
             tokenize_function,
             batched=True,
-            remove_columns=df.columns.tolist()  # 移除所有原始列
+            remove_columns=df.columns.tolist(),  # 移除所有原始列
+            load_from_cache_file=False
+        )
+        tokenized_dataset.set_format(
+            type='torch',
+            columns=['input_ids', 'attention_mask', 'labels']
         )
         return tokenized_dataset
 
@@ -155,13 +183,13 @@ class DataLoaderFactory:
     """数据加载器工厂"""
 
     @staticmethod
-    def create_data_loader(config, tokenizer) -> BaseDataLoader:
+    def create_data_loader(config) -> BaseDataLoader:
         task_type = config['project']['task_type']
         logger.info(f"Creating data loader for task type: {task_type}")
 
         if task_type == 'single_label':
-            return SingleLabelLoader(config, tokenizer)
+            return SingleLabelLoader(config)
         elif task_type == 'multi_label':
-            return MultiLabelLoader(config, tokenizer)
+            return MultiLabelLoader(config)
         else:
             raise ValueError(f"Unsupported task type: {task_type}")

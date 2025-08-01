@@ -1,0 +1,93 @@
+# llm-text-classification/configs/config.yaml
+
+# 1. 项目与任务设置
+project:
+  project_name: "LLM_Text_Classification"
+  # 任务类型: single_label / multi_label
+  task_type: "single_label"
+  # 实验追踪: "tensorboard" or "wandb"
+  experiment_tracker: "tensorboard"
+  wandb_project: "llm-text-classification-exp" # wandb项目名称 (如果使用wandb)
+
+# 2. 路径设置
+paths:
+  # 适用于单标签或多标签数据
+  data_path: "/home/hhc/nlp/data/sentiment/sentiment.csv"
+  # 模型和训练结果输出目录
+  output_dir: "/home/hhc/nlp/models/sentiment_qwen2.5-0.5B_clf/"
+  log_file: "logs/app.log"
+  # 推理或评估时加载的模型checkpoint路径
+  model_checkpoint: "/home/hhc/nlp/models/sentiment_qwen2.5-0.5B_clf/"
+
+# 3. 数据处理设置
+data_processing:
+  text_column: "text"
+  # 对于 single_label, 这是标签列名
+  # 对于 multi_label, 这是包含多个标签的列名
+  label_column: "label"
+  # 对于 multi_label, 定义标签分隔符
+  label_delimiter: ";"
+  max_length: 512
+
+# 4. 模型与微调设置
+model:
+  model_name_or_path: "/home/hhc/nlp/pretrained_models/Qwen2.5-0.5B/"
+  # LLM应用方法:
+  # classification_head: 在LLM上加一个分类头进行微调 (判别式)
+  # generative: 将分类任务转为文本生成任务进行微调 (生成式)
+  approach: "classification_head"
+
+  # 简单的零样本模板: "文本：'{text}'\n分类："
+  # 指令式模板（如上例）: "将以下评论文本分类为...情感分类："
+  # 角色扮演模板: "你是一个情感分析专家。请分析以下文本的情感。\n文本：'{text}'\n你的分析结果是："
+  prompt_template: "你是一个语言专家，请将以下评论文本进行二分类，标签分别为正向和负向，代表情感倾向。\n评论文本如下：\n'{text}'\n\n情感分类："
+
+  # 微调策略: sft / lora / qlora
+  finetuning_type: "lora"
+
+  # LoRA 配置 (仅当 finetuning_type 为 lora 或 qlora 时生效)
+  lora:
+    r: 8
+    lora_alpha: 16
+    lora_dropout: 0.1
+    # 目标模块，对于Qwen2，通常是这些
+    target_modules:
+      - "q_proj"
+      - "k_proj"
+      - "v_proj"
+      - "o_proj"
+      - "gate_proj"
+      - "up_proj"
+      - "down_proj"
+
+  # QLoRA 配置 (仅当 finetuning_type 为 qlora 时生效)
+  qlora:
+    # 量化位数: 4 或 8
+    load_in_4bit: true
+    bnb_4bit_quant_type: "nf4"
+    bnb_4bit_compute_dtype: "bfloat16" # torch.bfloat16
+    bnb_4bit_use_double_quant: true
+
+# 5. 训练参数 (基于 Hugging Face TrainingArguments)
+training_args:
+  per_device_train_batch_size: 2
+  per_device_eval_batch_size: 2
+  gradient_accumulation_steps: 4
+  learning_rate: 2.0e-4
+  num_train_epochs: 3
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.1
+  logging_strategy: "steps"
+  logging_steps: 1
+  save_strategy: "epoch"
+  eval_strategy: "epoch"
+  fp16: true # 如果GPU支持，可以开启以加速训练
+  # bf16: false # 如果是Ampere架构GPU，推荐使用bf16
+  load_best_model_at_end: true
+  # "eval_accuracy" for single-label, "eval_f1" for multi-label eval_los for generative
+  metric_for_best_model: "eval_accuracy"
+
+# 6. 推理设置
+inference:
+  # 用于单次推理的文本
+  inference_text: "这部电影的视觉效果简直无与伦比，故事也很有深度。"

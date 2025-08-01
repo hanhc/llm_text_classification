@@ -1,50 +1,39 @@
+# 如何运行项目
+## 1.安装依赖
 
-### **如何运行项目**
+```bash
+pip install -r requirements.txt
+```
 
-1. **安装依赖**:
-    
-    ```bash
-    pip install -r requirements.txt
-    
-    ```
-    
-2. **(可选) 登录Wandb**: 如果你要使用`wandb`进行实验跟踪，请先登录。
-    
-    ```bash
-    wandb login
-    
-    ```
-    
-3. **运行训练**:
-选择一个配置文件并运行 `main.py`。
-    - **训练一个单标签SFT模型**:
-        
-        ```bash
-        python src/main.py train --config configs/single_label_sft.yaml
-        
-        ```
-        
-    - **训练一个多标签LoRA模型**:
-        
-        ```bash
-        python src/main.py train --config configs/multi_label_lora.yaml
-        
-        ```
-        
-    
-    训练过程中的日志会保存在 `logs/app.log`，训练结果（模型、tokenizer、检查点）会保存在 `outputs/` 目录下对应的项目文件夹中。你可以在 `outputs/` 目录或Wandb界面查看TensorBoard日志。
-    
-4. **运行推理**:
-训练完成后，使用训练时相同的配置文件来加载模型进行推理。
-    
-    ```bash
-    python src/main.py infer --config configs/single_label_sft.yaml --text "这台电脑性能如何" "这个菜真好吃"
-    
-    ```
-    
-    或者对多标签模型进行推理：
-    
-    ```bash
-    python src/main.py infer --config configs/multi_label_lora.yaml --text "电影院音效很好，但服务员态度一般"
-    
-    ```
+注意：bitsandbytes 在 Windows 上安装可能需要特定步骤。在 Linux 上通常更直接。
+
+## 2.配置实验
+
+打开 configs/config.yaml 文件，根据您的需求进行修改。
+- 要训练单标签分类，使用 task_type: "single_label" 并指向 data/sample_single_label.csv。
+- 要训练多标签分类，使用 task_type: "multi_label" 并指向 data/sample_multi_label.csv。
+- 选择 finetuning_type (sft, lora, qlora) 和 approach (classification_head, generative)。
+- 设置 output_dir 来保存您的模型。
+
+## 3.开始训练
+
+```bash
+python main.py --config configs/config.yaml --mode train
+```
+
+训练日志将保存在 logs/app.log，模型文件将保存在 outputs/your_output_dir。
+
+## 4.进行推理
+训练完成后，更新 config.yaml 中的 model_checkpoint 为你的模型输出路径 (outputs/your_output_dir)。然后运行：
+
+```bash
+python main.py --config configs/config.yaml --mode infer
+```
+
+## 5.进行评估
+要在一个新的数据集上评估，请更新 config.yaml 中的 data_path 指向你的测试集，并运行：
+
+```bash
+python main.py --config configs/config.yaml --mode evaluate
+```
+
